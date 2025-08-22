@@ -1,0 +1,24 @@
+name: Cleanup Failed Workflows
+
+on:
+  workflow_dispatch:   # 手动触发
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete failed workflow runs
+        run: |
+          TOKEN=${{ secrets.GITHUB_TOKEN }}
+          OWNER=${{ github.repository_owner }}
+          REPO=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+
+          RUN_IDS=$(curl -s -H "Authorization: token $TOKEN" \
+            "https://api.github.com/repos/$OWNER/$REPO/actions/runs?status=completed&per_page=100" \
+            | jq '.workflow_runs[] | select(.conclusion=="failure") | .id')
+
+          for ID in $RUN_IDS; do
+            echo "Deleting failed run $ID"
+            curl -s -X DELETE -H "Authorization: token $TOKEN" \
+              "https://api.github.com/repos/$OWNER/$REPO/actions/runs/$ID"
+          done
